@@ -8,7 +8,8 @@ mod:HasButton(true);
 mod.canCache = true;
 
 local page = mod.page;
-local banner = {};
+local bannerArray = {};
+local bannerData = { backgroundColor = CreateColor(), borderColor = CreateColor(), emblemColor = CreateColor() };	-- for SetDoubleGuildTabardTextures()
 local bannerCache;
 
 local GUILD_LOGO_SCALE = 1.2;
@@ -19,8 +20,8 @@ local GUILD_LOGO_SCALE = 1.2;
 
 -- OnInspectReady
 function mod:OnInspectReady(unit,guid)
-	-- local bkgR, bkgG, bkgB, borderR, borderG, borderB, emblemR, emblemG, emblemB, emblemFilename = GetGuildLogoInfo(ex.unit);
-	banner[1], banner[2], banner[3], banner[4], banner[5], banner[6], banner[7], banner[8], banner[9], banner[10] = GetGuildLogoInfo(ex.unit);
+	local b = bannerArray;
+	b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10] = GetGuildLogoInfo(ex.unit);
 	self:HasData(ex.info.guildMembers);	-- WoD: Changed this from guildLevel to guildMembers, history repeats itself -- MoP: Changed this from guildID to guildLevel, as that is no longer available as 1st return in GetInspectGuildInfo()
 	self:UpdateGuildInfo();
 end
@@ -28,7 +29,7 @@ end
 -- OnCache
 function mod:OnCache(entry)
 	if (self:CanCache()) then
-		entry.GuildBanner = CopyTable(banner);
+		entry.GuildBanner = CopyTable(bannerArray);
 	end
 end
 
@@ -41,7 +42,7 @@ end
 
 -- OnClearInspect
 function mod:OnClearInspect()
-	wipe(banner);
+	wipe(bannerArray);
 	bannerCache = nil;
 	self:HasData(nil);
 	self:UpdateGuildInfo();
@@ -51,21 +52,41 @@ end
 --                                                Code                                                --
 --------------------------------------------------------------------------------------------------------
 
+-- Converts a banner array to a banner data table
+function mod:BannerArrayToBannerTable(banner)
+	local b = bannerData
+
+	local bkgR, bkgG, bkgB = banner[1], banner[2], banner[3];
+	local borderR, borderG, borderB = banner[4], banner[5], banner[6];
+	local emblemR, emblemG, emblemB = banner[7], banner[8], banner[9];
+	local emblemFilename = banner[10];
+	local emblemStyle = banner[11];
+
+	b.backgroundColor:SetRGB(bkgR, bkgG, bkgB);
+	b.borderColor:SetRGB(borderR, borderG, borderB);
+	b.emblemColor:SetRGB(emblemR, emblemG, emblemB);
+	b.emblemFileID = emblemFilename;
+	b.emblemStyle = emblemStyle;
+
+	return b;
+end
+
 -- Update Widgets
 function mod:UpdateGuildInfo()
 	local page = self.page;
 	local info = ex.info;
+	local banner;
+
 	if (not info.guildMembers) then
 		page.guild:SetText();
 		page.info:SetText();
-		SetDoubleGuildTabardTextures(nil,mod.page.leftIcon,mod.page.rightIcon,mod.page.banner,mod.page.bannerBorder,banner);	-- banner table should be empty here, so we draw a grey banner
+		banner = bannerArray;	-- banner table will be empty here, so we draw a grey empty banner
 	else
 		page.guild:SetText(info.guild);
 		page.info:SetFormattedText("%s Points - %s %s",tostring(info.guildPoints),info.guildMembers,MEMBERS);
-
-		local bannerData = (ex.isCacheEntry and bannerCache or banner);
-		SetDoubleGuildTabardTextures(nil,mod.page.leftIcon,mod.page.rightIcon,mod.page.banner,mod.page.bannerBorder,bannerData);
+		banner = self:BannerArrayToBannerTable(ex.isCacheEntry and bannerCache or bannerArray)
 	end
+	SetDoubleGuildTabardTextures(nil,mod.page.leftIcon,mod.page.rightIcon,mod.page.banner,mod.page.bannerBorder,bannerData);
 end
 
 --------------------------------------------------------------------------------------------------------

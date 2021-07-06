@@ -89,7 +89,7 @@ function mod:UpdateItemSlots()
 				local r,g,b = GetItemQualityColor(itemRarity and itemRarity > 0 and itemRarity or 0);
 				button.border:SetVertexColor(r,g,b);
 				button.border:Show();
-				itemLevel = GetDetailedItemLevelInfo(link);
+				itemLevel = LibItemString:GetTrueItemLevel(link);
 				button.level:SetText(itemLevel);
 			else
 				button.realLink = link;
@@ -135,13 +135,13 @@ local function OnClick(self,button)
 		OnDrag(self);
 	elseif (self.link) then
 		if (button == "RightButton") then
-			-- AzMsg("---|2 Gem Overview for "..select(2,GetItemInfo(self.link)).." |r---");
-			-- for i = 1, 3 do
-				-- local _, gemLink = GetItemGem(self.link,i);
-				-- if (gemLink) then
-					-- AzMsg(format("Gem |1%d|r = %s",i,gemLink));
-				-- end
-			-- end
+			AzMsg("---|2 Gem Overview for "..select(2,GetItemInfo(self.link)).." |r---");
+			for i = 1, 3 do
+				local _, gemLink = GetItemGem(self.link,i);
+				if (gemLink) then
+					AzMsg(format("Gem |1%d|r = %s",i,gemLink));
+				end
+			end
 		elseif (button == "LeftButton") then
 			local editBox = ChatEdit_GetActiveWindow();
 			if (IsModifiedClick("DRESSUP")) then

@@ -1,12 +1,10 @@
 local ex = Examiner;
-local cfg;
 
 -- Module
-local mod = ex:CreateModule("Gear","Gear List");
-mod.help = "Lists gear with enchants or the lack thereof";
+local mod = ex:CreateModule("Gear","Gear List (beta)");
+mod.help = "Lists gear with enchants and gems, or the lack thereof";
 mod:CreatePage(true,"");
 mod:HasButton(true);
-mod:AddOption({ var = "gearbutton", default = true, label = "Display Gear Tab", tip = "If enabled Examiner will display the Gear tab." });
 
 -- Variables
 local NUM_BUTTONS = 9;
@@ -27,16 +25,16 @@ local IGNORED_SLOTS = {
 
 -- List of item slots that can be enchanted. The value is at what itemLevel we find the first valid enchant.
 local ENCHANT_SLOT_LEVEL = {
-	INVTYPE_HEAD = 55;		-- Librams @ lvl60
+	INVTYPE_HEAD = nil;		-- MoP: Head enchants removed :( -- Used to be TBC faction head enchants or Vanilla Librams @ lvl60
 	INVTYPE_NECK = nil;
-	INVTYPE_SHOULDER = 55;	-- Argent Dawn & ZG enchants
+	INVTYPE_SHOULDER = 60;	-- Argent Dawn & ZG enchants?
 	INVTYPE_CLOAK = 1;
 	INVTYPE_CHEST = 1;
 	INVTYPE_ROBE = 1;
 	INVTYPE_WRIST = 1;
 	INVTYPE_HAND = 1;
 	INVTYPE_WAIST = nil;	-- Ignore this, only Engineers can enchant belts
-	INVTYPE_LEGS = 55;		-- Librams @ lvl60
+	INVTYPE_LEGS = 60;		-- TBC leg enchants or Vanilla Librams
 	INVTYPE_FEET = 1;
 	INVTYPE_FINGER = nil;	-- Enchanters can do rings, but we cannot check what profession someone is
 	INVTYPE_TRINKET = nil;
@@ -50,7 +48,7 @@ local ENCHANT_SLOT_LEVEL = {
 	INVTYPE_2HWEAPON = 1;
 	INVTYPE_SHIELD = 1;
 	INVTYPE_HOLDABLE = 300;
-	INVTYPE_RANGED = 1;			
+	INVTYPE_RANGED = 1;			-- Az: Removed?
 	INVTYPE_RANGEDRIGHT = 1,	-- Not sure what is different with the "right" version
 	INVTYPE_THROWN = nil;
 	INVTYPE_RELIC = nil;
@@ -59,20 +57,6 @@ local ENCHANT_SLOT_LEVEL = {
 --------------------------------------------------------------------------------------------------------
 --                                           Module Scripts                                           --
 --------------------------------------------------------------------------------------------------------
-
--- OnInitialize
-function mod:OnInitialize()
-	cfg = ex.cfg;
-end
-
--- OnConfigChanged
-function mod:OnConfigChanged()
-	if cfg.gearbutton then
-		mod:HasButton(true);
-	else
-		mod:HasButton(false);
-	end
-end
 
 -- OnInspectReady
 function mod:OnInspectReady(unit)
@@ -141,7 +125,7 @@ function UpdateShownItems(self)
 		local link = items[slotName];
 		if (link) then
 			local itemName, _, itemRarity, itemLevel, _, _, _, _, itemEquipLoc, itemTexture = GetItemInfo(link);
-			itemLevel = GetDetailedItemLevelInfo(link);
+			itemLevel = LibItemString:GetTrueItemLevel(link);
 
 			btn.link = link;
 --			btn.name:SetText(itemName);
@@ -155,29 +139,29 @@ function UpdateShownItems(self)
 			btn.iconFrame.id = LibGearExam.SlotIDs[shownSlots[index]];
 
 			-- Gem Scan -- Directly from unit or just from link
-			--  if (ex:ValidateUnit() and CheckInteractDistance(ex.unit,1)) then
-			--  	LibGearExam:GetGemInfo(nil,gemTable,ex.unit,slotName);
-			--  else
-			--  	LibGearExam:GetGemInfo(link,gemTable);
-			--  end
-			--  for i = 1, MAX_NUM_SOCKETS do
-			--  	local obj = btn["Gem"..i];
-			--  	if (gemTable[i]) then
-			--  		local itemName, _, _, _, _, _, _, _, _, itemTexture = GetItemInfo(gemTable[i]);
-			--  		if (itemName) then
-			--  			obj.link = gemTable[i];
-			--  			obj.missing = nil;
-			--  			obj.icon:SetTexture(itemTexture);
-			--  		else
-			--  			obj.link = nil;
-			--  			obj.missing = gemTable[i];
-			--  			obj.icon:SetTexture("Interface\\ItemSocketingFrame\\UI-EmptySocket-"..gemTable[i]:match("([^%s]+)"));
-			--  		end
-			--  		obj:Show();
-			--  	else
-			--  		obj:Hide();
-			--  	end
-			--  end
+			if (ex:ValidateUnit() and CheckInteractDistance(ex.unit,1)) then
+				LibGearExam:GetGemInfo(nil,gemTable,ex.unit,slotName);
+			else
+				LibGearExam:GetGemInfo(link,gemTable);
+			end
+			for i = 1, MAX_NUM_SOCKETS do
+				local obj = btn["Gem"..i];
+				if (gemTable[i]) then
+					local itemName, _, _, _, _, _, _, _, _, itemTexture = GetItemInfo(gemTable[i]);
+					if (itemName) then
+						obj.link = gemTable[i];
+						obj.missing = nil;
+						obj.icon:SetTexture(itemTexture);
+					else
+						obj.link = nil;
+						obj.missing = gemTable[i];
+						obj.icon:SetTexture("Interface\\ItemSocketingFrame\\UI-EmptySocket-"..gemTable[i]:match("([^%s]+)"));
+					end
+					obj:Show();
+				else
+					obj:Hide();
+				end
+			end
 			-- Enchant
 			local enchantID, enchantName = LibGearExam:GetEnchantInfo(link);
 			if (enchantID) then

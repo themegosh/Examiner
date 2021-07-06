@@ -17,10 +17,10 @@ local entries = {};
 
 -- Stat Entry Order -- Item 0 is the header for the group
 local StatEntryOrder = {
-	{ [0] = PLAYERSTAT_BASE_STATS, "STR", "AGI", "STA", "INT", "SPI", "ARMOR", "MASTERY" },
+	{ [0] = PLAYERSTAT_BASE_STATS, "STR", "AGI", "STA", "INT", "SPI", "ARMOR" },
 	{ [0] = HEALTH.." & "..MANA, "HP", "MP", "HP5", "MP5" },
-	{ [0] = PLAYERSTAT_SPELL_COMBAT.." "..STATS_LABEL:gsub(":",""), "SPELLDMG", "HEAL", "ARCANEDMG", "FIREDMG", "NATUREDMG", "FROSTDMG", "SHADOWDMG", "HOLYDMG", "SPELLCRIT", "SPELLHIT", "SPELLHASTE", "SPELLPENETRATION" },
-	{ [0] = MELEE.." & "..RANGED, "AP", "RAP", "CRIT", "HIT", "HASTE", "ARMORPENETRATION", "EXPERTISE", "WPNDMG", "RANGEDDMG", "DAGGERSKILL", "ONEAXESKILL", "TWOAXESKILL", "ONESWORDSKILL", "TWOSWORDSKILL", "ONEMACESKILL", "TWOMACESKILL", "BOWSKILL", "GUNSSKILL", "CROSSBOWSKILL" },
+	{ [0] = PLAYERSTAT_SPELL_COMBAT.." "..STATS_LABEL:gsub(":",""), "HEAL", "SPELLDMG", "ARCANEDMG", "FIREDMG", "NATUREDMG", "FROSTDMG", "SHADOWDMG", "HOLYDMG", "SPELLCRIT", "SPELLHIT", "SPELLHASTE", "SPELLPENETRATION" },
+	{ [0] = MELEE.." & "..RANGED, "AP", "RAP", "APFERAL", "CRIT", "HIT", "HASTE", "ARMORPENETRATION", "EXPERTISE", "WPNDMG", "RANGEDDMG" },
 	{ [0] = PLAYERSTAT_DEFENSES, "DEFENSE", "DODGE", "PARRY", "BLOCK", "BLOCKVALUE", "RESILIENCE", "PVPPOWER" },
 };
 
@@ -70,10 +70,6 @@ function mod:OnInspectReady(unit,guid)
 	if (ex.itemsLoaded) then
 		self:InitDetails();
 		self:BuildShownList();
-		-- We rebuild the stat list since all items are not fully loaded. This need to be rewriten, can we use ContinueOnItemLoad(function() ?
-		C_Timer.After(0.05, function()
-			self:BuildShownList();
-		end)
 	end
 end
 mod.OnInspect = mod.OnInspectReady;
@@ -86,7 +82,7 @@ function mod:OnCacheLoaded(entry,unit)
 		local iLvlTotal = 0;
 		for slotName, link in next, entry.Items do
 			if (slotName ~= "TabardSlot") and (slotName ~= "ShirtSlot") then
-				local itemLevel = GetDetailedItemLevelInfo(link);
+				local itemLevel = LibItemString:GetTrueItemLevel(link);
 				if (itemLevel) then
 					if (slotName == "MainHandSlot") and (not entry.Items.SecondaryHandSlot) then
 						itemLevel = (itemLevel * 2);
@@ -170,17 +166,48 @@ local function GetGemAndItemInfo()
 	local iLvlTotal, iSlotValues, iLvlMin, iLvlMax = 0, 0;
 	local gemCount, gemRed, gemYellow, gemBlue = 0, 0, 0, 0;
 	for slotName, link in next, ex.info.Items do
+		-- Count Gem Colors -- The reason we resort to a tooltip scan, rather than using "itemSubType" is that there are no global strings for mixed gems (purple, green and orange)
+		for i = 1, MAX_NUM_SOCKETS do
+			local _, gemLink = GetItemGem(link,i);
+			if (gemLink) then
+				gemCount = (gemCount + 1);
+				local _, _, _, _, _, _, itemSubType = GetItemInfo(gemLink);
+				if (EMPTY_SOCKET_PRISMATIC:match(itemSubType)) then
+					gemRed = (gemRed + 1);
+					gemYellow = (gemYellow + 1);
+					gemBlue = (gemBlue + 1);
+				else
+					LibGearExamTip:ClearLines();
+					LibGearExamTip:SetHyperlink(gemLink);
+					-- 09.08.09: This code now scans all lines, to fix the issue with patch 3.2 adding more lines to item tooltip.
+					for n = 3, LibGearExamTip:NumLines() do
+						local line = _G["LibGearExamTipTextLeft"..n]:GetText():lower();
+						if (line:match("^\".+\"$")) then
+							if (line:match(RED_GEM:lower())) then
+								gemRed = (gemRed + 1);
+							end
+							if (line:match(YELLOW_GEM:lower())) then
+								gemYellow = (gemYellow + 1);
+							end
+							if (line:match(BLUE_GEM:lower())) then
+								gemBlue = (gemBlue + 1);
+							end
+						end
+					end
+				end
+			end
+		end
 		-- Calculate Item Level Numbers
 		if (slotName ~= "TabardSlot") and (slotName ~= "ShirtSlot") then
 			local _, _, itemRarity, itemLevel = GetItemInfo(link);
-			itemLevel = GetDetailedItemLevelInfo(link);
+			itemLevel = LibItemString:GetTrueItemLevel(link);
 			if (itemLevel) then
 				iLvlMin = min(iLvlMin or itemLevel,itemLevel);
 				iLvlMax = max(iLvlMax or itemLevel,itemLevel);
 				-- Az: Since heirlooms scale, we should at least not count them as a level 1 item, that wouldn't be fair
-				-- if (itemRarity == 7) and (itemLevel == 1) then
-					-- itemLevel = ex.info.level;
-				-- end
+--				if (itemRarity == 7) and (itemLevel == 1) then
+--					itemLevel = ex.info.level;
+--				end
 				if (slotName == "MainHandSlot") and (not ex.info.Items.SecondaryHandSlot) then
 					itemLevel = (itemLevel * 2);
 				end
@@ -188,8 +215,8 @@ local function GetGemAndItemInfo()
 			end
 		end
 	end
-	-- Return	
-	return iLvlTotal, iLvlMin, iLvlMax;
+	-- Return
+	return iLvlTotal, iLvlMin, iLvlMax, gemCount, gemRed, gemYellow, gemBlue;
 end
 
 -- Initialise Details
@@ -206,7 +233,7 @@ function mod:InitDetails()
 		end
 	end
 	-- Item Level
-	local iLvlTotal, iLvlMin, iLvlMax = GetGemAndItemInfo();
+	local iLvlTotal, iLvlMin, iLvlMax, gemCount, gemRed, gemYellow, gemBlue = GetGemAndItemInfo();
 	local numItems = (#LibGearExam.Slots - 2); -- Ignore Tabard + Shirt, hence minus 2
 	details:Add("Item Levels");
 	details:Add("Combined Item Levels",iLvlTotal);
@@ -214,11 +241,11 @@ function mod:InitDetails()
 	if (iLvlMin and iLvlMax) then
 		details:Add("Min / Max Item Levels",iLvlMin.." / "..iLvlMax);
 	end
-	ex.info.iLvlAverage = math.floor((iLvlTotal / numItems)*10)*0.1;
+	ex.info.iLvlAverage = (iLvlTotal / numItems);
 	-- Gems
-	-- details:Add("Gems");
-	-- details:Add("Number of Gems",gemCount);
-	-- details:Add("Gem Color Matches",format("|cffff6060%d|r/|cffffff00%d|r/|cff008ef8%d",gemRed,gemYellow,gemBlue));
+	details:Add("Gems");
+	details:Add("Number of Gems",gemCount);
+	details:Add("Gem Color Matches",format("|cffff6060%d|r/|cffffff00%d|r/|cff008ef8%d",gemRed,gemYellow,gemBlue));
 	-- Cache
 	if (ex.isCacheEntry) then
 		details:Add("Cached Entry");
@@ -267,15 +294,13 @@ local function UpdateShownItems(self)
 				entry.right:SetText("");
 			end
 
-			-- this is where the tip is drawn
-
-			-- if (displayList[index].tip) then
-				-- entry.tip.tip = displayList[index].tip;
-				-- entry.tip:SetWidth(max(entry.right:GetWidth(),20));
-				-- entry.tip:Show();
-			-- else
-				-- entry.tip:Hide();
-			-- end
+			if (displayList[index].tip) then
+				entry.tip.tip = displayList[index].tip;
+				entry.tip:SetWidth(max(entry.right:GetWidth(),20));
+				entry.tip:Show();
+			else
+				entry.tip:Hide();
+			end
 
 			entry:Show();
 		else

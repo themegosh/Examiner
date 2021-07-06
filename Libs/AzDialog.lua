@@ -1,4 +1,10 @@
-local REVISION = 1;
+--[[
+	Changelog
+	——— 20.10.31 ——— Rev 02 ——— 9.0.1/Shadowlands ———
+	- CreateFrame() now uses the "BackdropTemplate"
+--]]
+
+local REVISION = 2;
 if (type(AzDialog) == "table") and (AzDialog.revision >= REVISION) then
 	return;
 end
@@ -37,7 +43,7 @@ end
 -- Creates a Dialog
 local function CreateDialog()
 	local index = (#dialogs + 1);
-	local f = CreateFrame("Frame",nil,UIParent);
+	local f = CreateFrame("Frame",nil,UIParent,BackdropTemplateMixin and "BackdropTemplate");	-- 9.0.1: Using BackdropTemplate
 	f:SetSize(340,88);
 	f:SetBackdrop(backdrop);
 	f:SetBackdropColor(0.1,0.22,0.35,1.0);
@@ -45,13 +51,14 @@ local function CreateDialog()
 	f:SetMovable(true);
 	f:EnableMouse(true);
 	f:SetToplevel(true);
+	f:SetFrameLevel(1000);		-- this have to be on top!
 	f:SetFrameStrata("DIALOG");
 	f:SetScript("OnMouseDown",f.StartMoving);
 	f:SetScript("OnMouseUp",f.StopMovingOrSizing);
 
 	f.header = f:CreateFontString(nil,"ARTWORK","GameFontHighlight");
 
-	f.edit = CreateFrame("EditBox",nil,f);
+	f.edit = CreateFrame("EditBox",nil,f,BackdropTemplateMixin and "BackdropTemplate");	-- 9.0.1: Using BackdropTemplate
 	f.edit:SetHeight(24);
 	f.edit:SetPoint("TOPLEFT",12,-28);
 	f.edit:SetPoint("TOPRIGHT",-12,-28);

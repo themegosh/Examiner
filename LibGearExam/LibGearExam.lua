@@ -26,8 +26,7 @@ LGE.revision = REVISION;
 LGE.ITEMLINK_PATTERN			= "(item:[^|]+)";					-- Matches the raw itemLink from the full itemString
 -- Pattern generation for itemLinks. Always match from the start of the itemLink, to ensure that any new properties added to itemLinks, wont break our patterns.
 LGE.ITEMLINK_PATTERN_ID			= "item:"..("[^:]*:"):rep(0).."(%d*)";
--- LGE.ITEMLINK_PATTERN_ENCHANT	= "item:"..("[^:]*:"):rep(1).."(%d*)";
-LGE.ITEMLINK_PATTERN_ENCHANT    = "item:%d+:(%d+)";
+LGE.ITEMLINK_PATTERN_ENCHANT	= "item:"..("[^:]*:"):rep(1).."(%d*)";
 LGE.ITEMLINK_PATTERN_LEVEL		= "(item:"..("[^:]*:"):rep(8)..")(%d*)(.+)";		-- used in gsub, so the pattern must match the entire link, even future added properties
 
 -- Other Patterns
@@ -52,70 +51,62 @@ end
 
 -- Stat Names
 LGE.StatNames = {
-	-- Base Stats
 	STR = ITEM_MOD_STRENGTH_SHORT,
 	AGI = ITEM_MOD_AGILITY_SHORT,
 	STA = ITEM_MOD_STAMINA_SHORT,
 	INT = ITEM_MOD_INTELLECT_SHORT,
 	SPI = ITEM_MOD_SPIRIT_SHORT,
-	HP = HEALTH.." Points",
-	MP = MANA.." Points",
-	HP5 = ITEM_MOD_HEALTH_REGEN_SHORT,
-	MP5 = ITEM_MOD_POWER_REGEN0_SHORT,
 
-	-- Defensive Stats
 	ARMOR = ARMOR,
-	DODGE = DODGE_CHANCE,
-	PARRY = PARRY_CHANCE,
-	DEFENSE = DEFENSE,
-	BLOCK = BLOCK_CHANCE,
-	BLOCKVALUE = ITEM_MOD_BLOCK_VALUE_SHORT,
-	
-	-- Resistances
+
 	ARCANERESIST = RESISTANCE6_NAME,
 	FIRERESIST = RESISTANCE2_NAME,
 	NATURERESIST = RESISTANCE3_NAME,
 	FROSTRESIST = RESISTANCE4_NAME,
 	SHADOWRESIST = RESISTANCE5_NAME,
 
-	-- Offensive Stats
-	AP = STAT_ATTACK_POWER,
+	MASTERY = STAT_MASTERY,
+
+	DODGE = STAT_DODGE,
+	PARRY = STAT_PARRY,
+	DEFENSE = DEFENSE,	-- Az: obsolete!
+	BLOCK = STAT_BLOCK,
+	BLOCKVALUE = ITEM_MOD_BLOCK_VALUE_SHORT,	-- Az: Obsolete!
+	RESILIENCE = STAT_RESILIENCE,
+	PVPPOWER = STAT_PVP_POWER,
+
+	AP = ITEM_MOD_ATTACK_POWER_SHORT,
 	RAP = ITEM_MOD_RANGED_ATTACK_POWER_SHORT,
-	APFERAL = ITEM_MOD_FERAL_ATTACK_POWER_SHORT,
-	CRIT = CRIT_CHANCE,
-	HIT = STAT_HIT_CHANCE,
-	RANGEDHIT = ITEM_MOD_HIT_RANGED_RATING_SHORT,	-- why doesn't this work? added to overall hit as workaround for hunters
+	CRIT = MELEE.." "..CRIT_ABBR,
+	HIT = MELEE.." "..HIT,
 	HASTE = MELEE.." "..STAT_HASTE,
+
 	WPNDMG = DAMAGE_TOOLTIP,
 	RANGEDDMG = RANGED_DAMAGE_TOOLTIP,
-	--ARMORPENETRATION = ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT,	-- Az: Obsolete
-	--EXPERTISE = STAT_EXPERTISE,	-- not in classic
+	ARMORPENETRATION = ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT,	-- Az: Obsolete
+	EXPERTISE = STAT_EXPERTISE,
 
-	-- Spells
 	SPELLCRIT = STAT_CATEGORY_SPELL.." "..CRIT_ABBR,
 	SPELLHIT = STAT_CATEGORY_SPELL.." "..HIT,
 	SPELLHASTE = STAT_CATEGORY_SPELL.." "..STAT_HASTE,
 	SPELLPENETRATION = ITEM_MOD_SPELL_PENETRATION_SHORT,
-	SPELLDMG = ITEM_MOD_SPELL_POWER_SHORT,
+
 	HEAL = ITEM_MOD_SPELL_HEALING_DONE_SHORT,
+
+	SPELLDMG = ITEM_MOD_SPELL_POWER_SHORT,
 	ARCANEDMG = ITEM_MOD_SPELL_POWER_SHORT.." ("..STRING_SCHOOL_ARCANE..")",
 	FIREDMG = ITEM_MOD_SPELL_POWER_SHORT.." ("..STRING_SCHOOL_FIRE..")",
 	NATUREDMG = ITEM_MOD_SPELL_POWER_SHORT.." ("..STRING_SCHOOL_NATURE..")",
 	FROSTDMG = ITEM_MOD_SPELL_POWER_SHORT.." ("..STRING_SCHOOL_FROST..")",
 	SHADOWDMG = ITEM_MOD_SPELL_POWER_SHORT.." ("..STRING_SCHOOL_SHADOW..")",
 	HOLYDMG = ITEM_MOD_SPELL_POWER_SHORT.." ("..STRING_SCHOOL_HOLY..")",
-	
-	-- Skill Bonuses
-	DAGGERSKILL = "Daggers Skill Bonus",
-	ONEAXESKILL = "Axes Skill Bonus",
-	TWOAXESKILL = "Two-Handed Axes Skill Bonus",
-	ONESWORDSKILL = "Swords Skill Bonus",
-	TWOSWORDSKILL = "Two-Handed Swords Skill Bonus",
-	ONEMACESKILL = "Maces Skill Bonus",
-	TWOMACESKILL = "Two-Handed Maces Skill Bonus",
-	BOWSKILL = "Bows skill Bonus",
-	GUNSSKILL = "Guns skill Bonus",
-	CROSSBOWSKILL = "Crossbows Skill Bonus",
+
+	-- Az: How to make these two more global?
+	HP = HEALTH.." Points",
+	MP = MANA.." Points",
+
+	HP5 = ITEM_MOD_HEALTH_REGEN_SHORT,
+	MP5 = ITEM_MOD_POWER_REGEN0_SHORT,
 };
 
 -- Create a sorted List of Stats
@@ -171,24 +162,25 @@ local EMPTY_SOCKET_NAMES = {
 
 LGE.StatRatingBaseTable = {
 	SPELLHASTE = 10,
-	SPELLHIT = 1, 
-	SPELLCRIT = 1,
+	SPELLHIT = 8,
+	SPELLCRIT = 14,
 	HASTE = 10,
-	HIT = 1,				-- Buffed a little in 4.0.1 (was 10 before)
-	CRIT = 1,
-	EXPERTISE = 2.34483,		-- Buffed a little in 4.0.1 (was 2.5 before)
-	DODGE = 1,
-	PARRY = 1,
-	BLOCK = 1,				-- Nerfed a little in 4.0.1 (was 5 before)
+	HIT = 10,				-- Buffed a little in 4.0.1 (was 10 before)
+	CRIT = 14,
+	EXPERTISE = 2.5,		-- Buffed a little in 4.0.1 (was 2.5 before)
+	DODGE = 12,
+	PARRY = 15,
+	BLOCK = 5,				-- Nerfed a little in 4.0.1 (was 5 before)
 	MASTERY = 14,
 
 	-- Az: resilience is a mess, how do they get to the current value as of patch 4.0.3a? It seems to be 9.58333333333333333 which is 28.75 / 3. How are they getting to this though?
 --	RESILIENCE = 28.75 * 0.75 / 2.25,	-- Reduced 25% compared to wrath, then buffed by 100% as a "hotfix". 10.12.05: found out this didnt match the char sheet, and it must have been changed again
 --	RESILIENCE = 28.75 * 0.75 / 2.9,	-- This seems to be correct at 85, somehow I think resilience scales differently now depending on level
 --	RESILIENCE = 28.75 * 0.75 / 2 / 1.125,
-	RESILIENCE = 7.96418,				-- Apparently, this is the value for 4.1?
+--	RESILIENCE = 7.96418,				-- Apparently, this is the value for 4.1?
+	RESILIENCE = 25,
 
-	-- DEFENSE = 1.5,
+	DEFENSE = 1.5,
 	ARMORPENETRATION = 4.69512176513672 / 1.25 / .88,
 };
 
@@ -322,9 +314,6 @@ function LGE:DoLineNeedScan(tipLine,scanSetBonuses)
 	-- Should Match: Normal +Stat, Base Item Armor, Block Value on Shields
 	elseif (text:find("^[+-]?%d+ [^%d]")) then
 		return true, text;
-	-- Lazy hack for French clients to detect armor value (e.g Armure : 50)
-	elseif (text:find("^(%a+) (%p)")) then
-		return true, text;
 	-- Set Names (Needed to Check Sets)
 	elseif (scanSetBonuses and text:find(self.SetNamePattern)) then
 		return true, text;
@@ -336,7 +325,7 @@ end
 --------------------------------------------------------------------------------------------------------
 function LGE:ScanLineForPatterns(text,statTable)
 	for index, pattern in ipairs(self.Patterns) do
-		local pos, _, value1, value2, value3 = text:find(pattern.p);
+		local pos, _, value1, value2 = text:find(pattern.p);
 		if (pos) and (value1 or pattern.v) then
 --pattern.uses = (pattern.uses or 0) + 1;
 			-- Pattern Debugging -> Find obsolete patterns put on alert
@@ -357,8 +346,6 @@ function LGE:ScanLineForPatterns(text,statTable)
 					if (type(pattern.v) == "table") then
 						statTable[statName] = (statTable[statName] or 0) + (pattern.v[statIndex]);
 					-- Az: This is a bit messy, only supports 2 now, needs to make it dynamic and support as many extra values as needed
-					elseif (statIndex == 3) and (value3) then
-						statTable[statName] = (statTable[statName] or 0) + (value3);
 					elseif (statIndex == 2) and (value2) then
 						statTable[statName] = (statTable[statName] or 0) + (value2);
 					else
@@ -435,10 +422,7 @@ function LGE:GetStatValue(statToken,statTable,compareTable,level,combineAdditive
 			end
 		end
 		if (statToken == "SPELLDMG") and (statTable["INT"]) then
-		--	value = (value + statTable["INT"]);	Intellect does not give spellpower in classic.
-		end
-		if (statToken == "HEAL") and (statTable["SPELLDMG"]) then
-			value = (value + statTable["SPELLDMG"]);	-- spelldmg is also healing power though. tested on mage and paladin
+			value = (value + statTable["INT"]);
 		end
 		if (statToken == "RAP") and (statTable["AP"]) then
 			value = (value + statTable["AP"]);
@@ -447,8 +431,8 @@ function LGE:GetStatValue(statToken,statTable,compareTable,level,combineAdditive
 	-- OPTION: Give Rating Values in Percent
 	local valuePct, rating;
 	if (self.StatRatingBaseTable[statToken]) then
-		rating = self:GetRatingInPercent(statToken,value,level) or 0; -- tip ?
-		valuePct = tonumber(format("%.2f",rating)); -- tip ?
+		rating = self:GetRatingInPercent(statToken,value,level) or 0;
+		valuePct = tonumber(format("%.2f",rating));
 	end
 	-- Do not modify the value further if we are just getting the compare value (compareTable == true)
 	if (compareType == "boolean") then
@@ -473,11 +457,6 @@ function LGE:GetStatValue(statToken,statTable,compareTable,level,combineAdditive
 	if (percentRatings) and (self.StatRatingBaseTable[statToken]) then
 		return valuePct, value;
 	else
-		 -- do we color it ? "%" looks out of place...
-		if (self.StatRatingBaseTable[statToken]) then
-			local color = "|cff80ff80";
-			value = color..value.."%";
-		end	
 		return value, valuePct;
 	end
 end
@@ -489,16 +468,14 @@ end
 -- Get Enchant Info -- Returns the EnchantID and the EnchantName
 function LGE:GetEnchantInfo(link)
 	local id = tonumber(link:match(LGE.ITEMLINK_PATTERN_ENCHANT));
-	-- Prepare basic item with enchant
-	if (id == nil  or id == "") then
+	if (not id) or (id == 0) then
 		return;
 	end
-	local link = "item:20768:"..id..":" -- Item needs to have only one line
 	-- Set Link
 	self.Tip:ClearLines();
-	self.Tip:SetHyperlink(link);
+	self.Tip:SetHyperlink(format("item:40892:%d",id));	-- Az: somewhat hackish, but it works!
 	local enchantName = LibGearExamTipTextLeft2:GetText();
-	if (not enchantName) or (enchantName == "") then
+	if (self.Tip:NumLines() == 2) or (not enchantName) or (enchantName == "") then
 		return;
 	end
 	-- return
@@ -507,7 +484,40 @@ end
 
 -- Get Gem Info -- Number of returns will match number of sockets in item. Value will be gemLink if gemmed, and "EMPTY_SOCKET_<color>" global when gem is missing
 function LGE:GetGemInfo(link,gemTable,unit,slotName)
-	
+	if (gemTable) then
+		wipe(gemTable);
+	else
+		gemTable = {};
+	end
+	-- Get "link" if we are scanning from "unit"
+	if (not link) then
+		link = GetInventoryItemLink(unit,self.SlotIDs[slotName]);
+	end
+	-- API Scan (Finds gemmed sockets)
+	for i = 1, MAX_NUM_SOCKETS do
+		local _, gemLink = GetItemGem(link,i);
+		gemTable[i] = gemLink and gemLink:match(self.ITEMLINK_PATTERN) or nil;
+	end
+	-- Tooltip Scan (Finds empty sockets)
+	self.Tip:ClearLines();
+	if (unit) then
+		self.Tip:SetInventoryItem(unit,self.SlotIDs[slotName]);
+	else
+		self.Tip:SetHyperlink(link);
+	end
+	for i = 2, self.Tip:NumLines() do
+		local line = _G["LibGearExamTipTextLeft"..i];
+		local text = line and line:GetText();
+		if (EMPTY_SOCKET_NAMES[text]) then
+			local index = 1;
+			while (gemTable[index]) do
+				index = (index + 1);
+			end
+			gemTable[index] = text;
+		end
+	end
+	-- Return
+	return gemTable;
 end
 
 -- Fix Item String Level -- The level number of an item string, is always the inspector's level, not the inspected, this function fixes that
@@ -523,6 +533,6 @@ function LGE:FormatStatName(statToken,inPercent)
 	elseif (inPercent or not self.StatRatingBaseTable[statToken]) then
 		return self.StatNames[statToken];
 	else
-		return self.StatNames[statToken] -- is there a language friendly version of .." "..RATING; ? use STATUS_TEXT_PERCENT ? this add rating or chance to the stats description
+		return self.StatNames[statToken].." "..RATING;
 	end
 end

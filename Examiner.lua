@@ -105,7 +105,7 @@ end
 
 -- OnUpdate -- Only used for units outside inspect range
 local function Examiner_OnUpdate(self,elapsed)
-	if (self:ValidateUnit()) and (CheckInteractDistance(self.unit,3)) then
+	if (self:ValidateUnit()) and (CheckInteractDistance(self.unit,1)) then
 		self:DoInspect(self.unit);
 		-- We do another inspect due to honnor data reporting the last succesful inspect... (needs to find something more elegant)
 		C_Timer.After(0.5, function()
@@ -182,12 +182,6 @@ end
 function ex:PLAYER_TARGET_CHANGED(event)
 	if (cfg.autoInspect) and (UnitExists("target")) then
 		self:DoInspect("target");
-			if _G.Details and (UnitIsPlayer("target")) then
-				InspectFrame = Examiner
-				Details:ShowTalentsPanel()
-			elseif _G.Details then
-				DetailsTalentFrame:Hide();
-			end
 	elseif (self.unit == "target") then
 		self.unit = nil;
 		self:SetScript("OnUpdate",nil);
@@ -212,7 +206,7 @@ ex.UNIT_PORTRAIT_UPDATE = ex.UNIT_MODEL_CHANGED;
 
 -- Rescan Gear on Item Change
 function ex:UNIT_INVENTORY_CHANGED(event,unit)
-	if (self:ValidateUnit() and UnitIsUnit(unit,self.unit) and CheckInteractDistance(self.unit,3)) then
+	if (self:ValidateUnit() and UnitIsUnit(unit,self.unit) and CheckInteractDistance(self.unit,1)) then
 		self:ScanGear(unit);
 		self:SendModuleEvent("OnInspectReady",unit,self.guid);
 	end
@@ -550,8 +544,7 @@ end
 -- CanInspect function override as the normal function seems bugged.
 function ex:CanInspect(unit)
 	-- If CanInspect() says yes, then go ahead. Otherwise only inspect if not npc, is visible, and in range, not only that, but the unit has to be friendly, or a non flagged foe.
-	return CanInspect(unit) or (ex.unitType ~= 1 and UnitIsVisible(unit) and CheckInteractDistance(unit,3) and (ex.unitType == 3 or not UnitIsPVP(unit) or UnitIsPVPSanctuary(unit)));
-	
+	return CanInspect(unit) or (ex.unitType ~= 1 and UnitIsVisible(unit) and CheckInteractDistance(unit,1) and (ex.unitType == 3 or not UnitIsPVP(unit) or UnitIsPVPSanctuary(unit)));
 end
 
 -- Show or hide Examiner, but ensures that its done using the movable option
@@ -754,14 +747,8 @@ function ex:DoInspect(unit,openFlag)
 		if (not self.canInspect) and (not self:LoadPlayerFromCache(self:GetEntryName())) and (cfg.activePage) then
 			self.modules[cfg.activePage].page:Hide();	-- Az: this is slightly bad to do, what if a module still have data to show? feats still work outside inspect range for example
 		end
-		-- show talents
-		if (openFlag ~= false) and _G.Details and (UnitIsPlayer("target")) and (not self:IsShown()) then
-    		self:Display();
-    		InspectFrame = Examiner
-    		Details:ShowTalentsPanel()
-		end
 		-- Outside range, monitor range and inspect as soon as they are in range
-		if (not CheckInteractDistance(unit,3)) then
+		if (not CheckInteractDistance(unit,1)) then
 			self:SetScript("OnUpdate",Examiner_OnUpdate);
 		end
 	end
@@ -983,6 +970,7 @@ end
 -- Item Button OnClick
 function ex.ItemButton_OnClick(self,button)
 	if (self.link) then
+		local _, itemLink = GetItemInfo(self.link);
 		if (button == "RightButton") then
 			-- Get Examiner item link and player item link
 			local _, ExaminerItemLink = GetItemInfo(self.link);
@@ -1071,7 +1059,7 @@ function ex.ItemButton_OnEnter(self,motion)
 		wipe(statTipStats2);
 		gtt:Show();
 	-- set item from unit
-	elseif (self.id and ex:ValidateUnit() and CheckInteractDistance(ex.unit,3) and gtt:SetInventoryItem(ex.unit,self.id)) then
+	elseif (self.id and ex:ValidateUnit() and CheckInteractDistance(ex.unit,1) and gtt:SetInventoryItem(ex.unit,self.id)) then
 	-- set item from link
 	elseif (self.link) then
 		gtt:SetHyperlink(self.link);

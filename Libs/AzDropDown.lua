@@ -1,32 +1,35 @@
 --[[
 	Changelog
-	---------
-	### Rev 04 ###
+	——— Rev 04 ———
 	- Dropdowns can now overwrite the label in their init and selectvalue funcs.
 	- Empty menus now show "No items".
-	### Rev 05 ###
+	——— Rev 05 ———
 	- A menu entry now supports a .tip key, and will show a tooltip if it's a string.
 	- The SelectValueFunc() now has a third parameter, the menu item index that was clicked.
 	- The checkmark texture is now the green one used for readychecks in the raid tab.
 	- Will now obey the .checked key if set, not only when it's true.
 	- The autoselect feature of the last selected value, will not just select everything when nil.
 	- The InitSelectedItem() function will not ignore an initialisation with nil anymore.
-	### Rev 06 ###
+	——— Rev 06 ———
 	- The "menu.list" table now has a meta table which will automatically create a table or take one from storage.
 	- If tables are creates through the new metatable index method, it will recycle old tables from storage.
-	### Rev 07 ###
+	——— Rev 07 ———
 	- The menu will now hide itself, if any of it's parents was hidden.
-	### Rev 09 ###
+	——— Rev 09 ———
 	- DropDown Text Object can no longer be wider than the width of the DropDown itself.
-	### Rev 10 - 7.0.3/Legion ###
+	——— Rev 10 ——— 7.0.3/Legion ———
 	- Fixed issue related to frame level, making the dropdown appear behind other frames. Thanks vincentSDSH.
-	### Rev 11 - 7.3 ###
+	——— Rev 11 ——— 7.3 ———
 	- Fixed the PlaySound() issue
-	### Rev 12 - 8.0/BfA ###
+	——— Rev 12 ——— 8.0/BfA ———
 	- Disabled wordwrap for the labels
 	- Rewrote some parts of the code
 	- Added some documentation
 	- The dropdown menu will now copy the backdrop from the parent frame
+	——— Rev 13 ——— 8.0 ———
+	- QueryItems() now returns the table of the queried items
+	——— 20.10.31 ——— Rev 14 ——— 9.0.1/Shadowlands ———
+	- CreateFrame() now uses the "BackdropTemplate"
 
 	Keys set in the parent frame table
 	----------------------------------
@@ -46,7 +49,7 @@
 	tip			Tooltip will be shown when mouse is over item
 --]]
 
-local REVISION = 12;
+local REVISION = 14;
 if (type(AzDropDown) == "table") and (AzDropDown.vers >= REVISION) then
 	return;
 end
@@ -91,7 +94,7 @@ local DEF_MAX_MENU_ITEMS = 16;
 --------------------------------------------------------------------------------------------------------
 
 -- Used for both the DropDownMenuMixin & DropDownFrameMixin
-local function ApplyBackdrop(self,backdrop,backdropColor,backdropBorderColor)
+local function ApplyOurBackdrop(self,backdrop,backdropColor,backdropBorderColor)
 	if (not backdropColor) then
 		backdropColor = backdrop and backdrop.backdropColor or AzDropDown.backdrop.backdropColor;
 	end
@@ -110,25 +113,29 @@ end
 --                                        DropDown Menu Mixin                                         --
 --------------------------------------------------------------------------------------------------------
 
-local DropDownMenuMixin = { ApplyBackdrop = ApplyBackdrop };
+local DropDownMenuMixin = { ApplyOurBackdrop = ApplyOurBackdrop };
 
 -- Calls the parent's "initFunc" to query the items
 function DropDownMenuMixin:QueryItems(parent)
+	local list = self.list;
+
 	-- Clear old list
-	for _, tbl in ipairs(self.list) do
+	for _, tbl in ipairs(list) do
 		wipe(tbl);
 		storage[#storage + 1] = tbl;
 	end
-	wipe(self.list);
+	wipe(list);
 
 	-- Init new list
-	parent:initFunc(self.list);
+	parent:initFunc(list);
 
 	-- Show "No items" for empty lists & Update List
-	if (#self.list == 0) then
-		self.list[1].text = "No items";
-		self.list[1].header = true;
+	if (#list == 0) then
+		list[1].text = "No items";
+		list[1].header = true;
 	end
+
+	return list;
 end
 
 -- Update the items used in the dropdown menu
@@ -137,20 +144,20 @@ function DropDownMenuMixin:UpdateItems()
 	local maxItems = self:GetMaxShownItems();
 
 	-- Query updated items from the parent's "initFunc"
-	self:QueryItems(parent);
+	local list = self:QueryItems(parent);
 
 	-- Update Scroll Items
 	self.scroll:UpdateScroll();
 
 	-- Measure Width
 	local maxItemWidth = parent.minDropdownWidth or 0;
-	for _, tbl in ipairs(self.list) do
+	for _, tbl in ipairs(list) do
 		self.measure:SetText(tbl.text);
 		maxItemWidth = max(maxItemWidth,self.measure:GetWidth() + 10 + 38);
 	end
 
 	-- Adjust anchor point based on scrollbar being visible or not
-	if (#self.list > maxItems) then
+	if (#list > maxItems) then
 		maxItemWidth = (maxItemWidth + 12);
 		self.items[1]:SetPoint("TOPRIGHT",-28,-8);
 	else
@@ -159,7 +166,7 @@ function DropDownMenuMixin:UpdateItems()
 
 	-- Set width/height
 	self:SetWidth(maxItemWidth);
-	self:SetHeight(min(#self.list,maxItems) * MENU_ITEM_HEIGHT + 16);
+	self:SetHeight(min(#list,maxItems) * MENU_ITEM_HEIGHT + 16);
 
 	-- Anchor scrollbar bottom to the last item
 	local lastItem = self.items[min(#self.items,maxItems)];
@@ -182,13 +189,13 @@ function DropDownMenuMixin:Initialize(parent,point,parentPoint)
 	self:SetFrameLevel(parent:GetFrameLevel() + 4);
 
 	-- Copy Backdrop from parent, or use default
-	local backdrop = parent:GetBackdrop();
+	local backdrop = parent.GetBackdrop and parent:GetBackdrop();
 	if (backdrop) then
 		backdropColor:SetRGB(parent:GetBackdropColor());
 		backdropBorderColor:SetRGBA(parent:GetBackdropBorderColor());
-		self:ApplyBackdrop(backdrop,backdropColor,backdropBorderColor);
+		self:ApplyOurBackdrop(backdrop,backdropColor,backdropBorderColor);
 	else
-		self:ApplyBackdrop(AzDropDown.backdrop);
+		self:ApplyOurBackdrop(AzDropDown.backdrop);
 	end
 
 	-- updates the menu items
@@ -300,7 +307,7 @@ end
 
 -- Creates the DropDown menu with item buttons and scrollbar
 local function CreateDropDownMenu()
-	menu = CreateFrame("Frame",nil,nil);
+	menu = CreateFrame("Frame",nil,nil,BackdropTemplateMixin and "BackdropTemplate");	-- 9.0.1: Using BackdropTemplate
 
 	menu:SetToplevel(true);
 	menu:SetClampedToScreen(true);
@@ -355,7 +362,7 @@ end
 --                                        DropDown Frame Mixin                                        --
 --------------------------------------------------------------------------------------------------------
 
-local DropDownFrameMixin = { ApplyBackdrop = ApplyBackdrop };
+local DropDownFrameMixin = { ApplyOurBackdrop = ApplyOurBackdrop };
 
 -- Sets the text of the label, but can be called on the dropdown frame
 function DropDownFrameMixin:SetText(text)
@@ -367,10 +374,12 @@ function DropDownFrameMixin:InitSelectedItem(selectedValue)
 	if (not menu) then
 		CreateDropDownMenu();
 	end
+
 	self:SetText("|cff00ff00Select Value...");	-- set before calling QueryItems() as that may override it
 	self.selectedValue = selectedValue;
-	menu:QueryItems(self);
-	for _, entry in ipairs(menu.list) do
+
+	local list = menu:QueryItems(self);
+	for _, entry in ipairs(list) do
 		if (entry.value == selectedValue) then
 			self:SetText(entry.text);
 			return;
@@ -394,7 +403,7 @@ function AzDropDown:CreateDropDown(parent,width,initFunc,selectValueFunc,isAutoS
 		return;
 	end
 
-	local dd = CreateFrame("Frame",nil,parent);
+	local dd = CreateFrame("Frame",nil,parent,BackdropTemplateMixin and "BackdropTemplate");	-- 9.0.1: Using BackdropTemplate
 	dd:SetSize(abs(width),24);
 
 	dd.button = CreateFrame("Button",nil,dd);
@@ -417,7 +426,7 @@ function AzDropDown:CreateDropDown(parent,width,initFunc,selectValueFunc,isAutoS
 
 	Mixin(dd,DropDownFrameMixin);
 
-	dd:ApplyBackdrop(AzDropDown.backdrop);
+	dd:ApplyOurBackdrop(AzDropDown.backdrop);
 
 	-- dropdown display variables
 	dd.initFunc = initFunc;
